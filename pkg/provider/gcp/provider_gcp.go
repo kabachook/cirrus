@@ -1,42 +1,43 @@
-package provider
+package gcp
 
 import (
 	"context"
-	"net/http"
 
 	"github.com/kabachook/cirrus/pkg/config"
+	"github.com/kabachook/cirrus/pkg/provider"
+	"go.uber.org/zap"
 	"google.golang.org/api/compute/v1"
-	"google.golang.org/api/option"
 	"inet.af/netaddr"
 )
 
 type ProviderGCP struct {
 	ctx     context.Context
-	client  *http.Client
+	service *compute.Service
+	logger  *zap.Logger
 	project string
 }
 
-func (p *ProviderGCP) New(ctx context.Context) (*ProviderGCP, error) {
-	return &ProviderGCP{
-		ctx: ctx,
-	}, nil
-}
-
-func (p *ProviderGCP) Configure(cfg config.ConfigGCP) error {
-	p.project = cfg.Project
-	return nil
-}
-
-func (p *ProviderGCP) All() ([]Endpoint, error) {
-	var endpoints []Endpoint
-
-	service, err := compute.NewService(p.ctx, option.WithHTTPClient(p.client))
+func New(ctx context.Context, cfg config.ConfigGCP) (*ProviderGCP, error) {
+	service, err := compute.NewService(ctx, cfg.Options...)
 	if err != nil {
 		return nil, err
 	}
 
+	return &ProviderGCP{
+		ctx:     ctx,
+		service: service,
+		logger:  cfg.Logger,
+		project: cfg.Project,
+	}, nil
+}
+
+func (p *ProviderGCP) All() ([]provider.Endpoint, error) {
+	var endpoints []provider.Endpoint
+
+	p.logger.Debug("Getting endpoints", zap.String("project", p.project))
+
 	var zones []string
-	req := service.Zones.List(p.project)
+	req := p.service.Zones.List(p.project)
 	if err := req.Pages(p.ctx, func(page *compute.ZoneList) error {
 		for _, zone := range page.Items {
 			zones = append(zones, zone.Description)
@@ -47,8 +48,9 @@ func (p *ProviderGCP) All() ([]Endpoint, error) {
 	}
 
 	for _, zone := range zones {
-		req := service.Instances.List(p.project, zone)
+		req := p.service.Instances.List(p.project, zone)
 		if err := req.Pages(p.ctx, func(page *compute.InstanceList) error {
+			p.logger.Debug("Fetching endpoints", zap.String("zone", zone))
 			for _, instance := range page.Items {
 				for _, iface := range instance.NetworkInterfaces {
 					ip, err := netaddr.ParseIP(iface.NetworkIP)
@@ -56,7 +58,7 @@ func (p *ProviderGCP) All() ([]Endpoint, error) {
 						return err
 					}
 
-					endpoints = append(endpoints, Endpoint{
+					endpoints = append(endpoints, provider.Endpoint{
 						IP:   ip,
 						Name: instance.Name,
 						Type: instance.Kind,

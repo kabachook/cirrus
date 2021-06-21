@@ -22,9 +22,8 @@ THE SOFTWARE.
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 var gcpCmd = &cobra.Command{
@@ -32,7 +31,7 @@ var gcpCmd = &cobra.Command{
 	Short: "Google Cloud Platform",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("gcp called")
+		cmd.Help()
 	},
 }
 
@@ -40,4 +39,7 @@ func init() {
 	rootCmd.AddCommand(gcpCmd)
 
 	gcpCmd.PersistentFlags().String("project", "", "Project name")
+	gcpCmd.PersistentFlags().String("key", "", "ServiceAccount JSON key file")
+	viper.BindPFlag("project", gcpCmd.PersistentFlags().Lookup("project"))
+	viper.BindPFlag("key", gcpCmd.PersistentFlags().Lookup("key"))
 }

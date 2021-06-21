@@ -22,20 +22,55 @@ THE SOFTWARE.
 package cmd
 
 import (
-	"fmt"
+	"context"
 
+	"github.com/kabachook/cirrus/pkg/config"
+	"github.com/kabachook/cirrus/pkg/provider/gcp"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
+	"google.golang.org/api/option"
 )
 
-var instancesCmd = &cobra.Command{
-	Use:   "instances",
-	Short: "List IPs of instances",
+var allCmd = &cobra.Command{
+	Use:   "all",
+	Short: "List IPs of all resources",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("instances called")
+		logger, _ := zap.NewDevelopment()
+		defer logger.Sync()
+		sugar := logger.Sugar()
+
+		project, err := cmd.Parent().PersistentFlags().GetString("project")
+		if err != nil {
+			sugar.Fatal(err)
+		}
+		key, err := cmd.Parent().PersistentFlags().GetString("key")
+		if err != nil {
+			sugar.Fatal(err)
+		}
+
+		ctx := context.Background()
+		provider, err := gcp.New(ctx, config.ConfigGCP{
+			Project: project,
+			Options: []option.ClientOption{
+				option.WithCredentialsFile(key),
+			},
+			Logger: sugar.Named("gcp").Desugar(),
+		})
+		if err != nil {
+			sugar.Fatal(err)
+		}
+
+		endpoints, err := provider.All()
+		if err != nil {
+			sugar.Fatal(err)
+		}
+
+		sugar.Infow("Got endpoints", zap.Any("endpoints", endpoints))
+
 	},
 }
 
 func init() {
-	gcpCmd.AddCommand(instancesCmd)
+	gcpCmd.AddCommand(allCmd)
 }

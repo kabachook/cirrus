@@ -14,6 +14,5 @@ type Endpoint struct {
 
 type Provider interface {
 	New(context.Context) (*Provider, error)
-	Configure(interface{}) error
 	All() ([]*Endpoint, error)
 }
