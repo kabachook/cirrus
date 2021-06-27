@@ -7,9 +7,9 @@ import (
 )
 
 type Endpoint struct {
-	IP   netaddr.IP
-	Type string
-	Name string
+	IP   netaddr.IP `json:"ip,omitempty"`
+	Type string     `json:"type,omitempty"`
+	Name string     `json:"name,omitempty"`
 }
 
 type Provider interface {

@@ -72,6 +72,7 @@ func initConfig() {
 		// Search config in home directory with name ".cirrus" (without extension).
 		viper.AddConfigPath(home)
 		viper.SetConfigName(".cirrus")
+		viper.SetConfigType("yaml")
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match

@@ -31,6 +31,34 @@ func New(ctx context.Context, cfg config.ConfigGCP) (*ProviderGCP, error) {
 	}, nil
 }
 
+func (p *ProviderGCP) Instances(zone string) ([]provider.Endpoint, error) {
+	var endpoints []provider.Endpoint
+
+	req := p.service.Instances.List(p.project, zone)
+	if err := req.Pages(p.ctx, func(page *compute.InstanceList) error {
+		p.logger.Debug("Fetching endpoints", zap.String("zone", zone))
+		for _, instance := range page.Items {
+			for _, iface := range instance.NetworkInterfaces {
+				ip, err := netaddr.ParseIP(iface.NetworkIP)
+				if err != nil {
+					return err
+				}
+
+				endpoints = append(endpoints, provider.Endpoint{
+					IP:   ip,
+					Name: instance.Name,
+					Type: instance.Kind,
+				})
+			}
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	return endpoints, nil
+}
+
 func (p *ProviderGCP) All() ([]provider.Endpoint, error) {
 	var endpoints []provider.Endpoint
 
@@ -48,27 +76,11 @@ func (p *ProviderGCP) All() ([]provider.Endpoint, error) {
 	}
 
 	for _, zone := range zones {
-		req := p.service.Instances.List(p.project, zone)
-		if err := req.Pages(p.ctx, func(page *compute.InstanceList) error {
-			p.logger.Debug("Fetching endpoints", zap.String("zone", zone))
-			for _, instance := range page.Items {
-				for _, iface := range instance.NetworkInterfaces {
-					ip, err := netaddr.ParseIP(iface.NetworkIP)
-					if err != nil {
-						return err
-					}
-
-					endpoints = append(endpoints, provider.Endpoint{
-						IP:   ip,
-						Name: instance.Name,
-						Type: instance.Kind,
-					})
-				}
-			}
-			return nil
-		}); err != nil {
+		zoneInstances, err := p.Instances(zone)
+		if err != nil {
 			return nil, err
 		}
+		endpoints = append(endpoints, zoneInstances...)
 	}
 
 	return endpoints, nil

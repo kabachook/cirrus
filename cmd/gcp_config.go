@@ -22,24 +22,9 @@ THE SOFTWARE.
 package cmd
 
 import (
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
+	cmdGen "github.com/kabachook/cirrus/pkg/cmd"
 )
 
-var gcpCmd = &cobra.Command{
-	Use:   "gcp",
-	Short: "Google Cloud Platform",
-	Long:  ``,
-	Run: func(cmd *cobra.Command, args []string) {
-		cmd.Help()
-	},
-}
-
 func init() {
-	rootCmd.AddCommand(gcpCmd)
-
-	gcpCmd.PersistentFlags().String("project", "", "Project name")
-	gcpCmd.PersistentFlags().String("key", "", "ServiceAccount JSON key file")
-	viper.BindPFlag("gcp.project", gcpCmd.PersistentFlags().Lookup("project"))
-	viper.BindPFlag("gcp.key", gcpCmd.PersistentFlags().Lookup("key"))
+	gcpCmd.AddCommand(cmdGen.NewConfig())
 }
