@@ -19,6 +19,8 @@ require (
 	github.com/stretchr/testify v1.7.0 // indirect
 	github.com/ugorji/go v1.2.6 // indirect
 	github.com/xordataexchange/crypt v0.0.3-0.20170626215501-b2862e3d0a77 // indirect
+	github.com/yandex-cloud/go-genproto v0.0.0-20210628095701-08b5033ff53b // indirect
+	github.com/yandex-cloud/go-sdk v0.0.0-20210624123524-fdf15152f044 // indirect
 	go.uber.org/atomic v1.8.0 // indirect
 	go.uber.org/multierr v1.7.0 // indirect
 	go.uber.org/zap v1.17.0 // indirect

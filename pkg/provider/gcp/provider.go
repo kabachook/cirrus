@@ -10,7 +10,7 @@ import (
 	"inet.af/netaddr"
 )
 
-type ProviderGCP struct {
+type Provider struct {
 	ctx     context.Context
 	service *compute.Service
 	logger  *zap.Logger
@@ -25,13 +25,13 @@ type Config struct {
 	Zones   []string
 }
 
-func New(ctx context.Context, cfg Config) (*ProviderGCP, error) {
+func New(ctx context.Context, cfg Config) (*Provider, error) {
 	service, err := compute.NewService(ctx, cfg.Options...)
 	if err != nil {
 		return nil, err
 	}
 
-	return &ProviderGCP{
+	return &Provider{
 		ctx:     ctx,
 		service: service,
 		logger:  cfg.Logger,
@@ -40,11 +40,11 @@ func New(ctx context.Context, cfg Config) (*ProviderGCP, error) {
 	}, nil
 }
 
-func (p *ProviderGCP) Name() string {
+func (p *Provider) Name() string {
 	return "gcp"
 }
 
-func (p *ProviderGCP) Instances(zone string) ([]provider.Endpoint, error) {
+func (p *Provider) Instances(zone string) ([]provider.Endpoint, error) {
 	var endpoints []provider.Endpoint
 
 	req := p.service.Instances.List(p.project, zone)
@@ -72,21 +72,10 @@ func (p *ProviderGCP) Instances(zone string) ([]provider.Endpoint, error) {
 	return endpoints, nil
 }
 
-func (p *ProviderGCP) All() ([]provider.Endpoint, error) {
+func (p *Provider) All() ([]provider.Endpoint, error) {
 	var endpoints []provider.Endpoint
 
 	p.logger.Debug("Getting endpoints", zap.String("project", p.project))
-
-	// var zones []string
-	// req := p.service.Zones.List(p.project)
-	// if err := req.Pages(p.ctx, func(page *compute.ZoneList) error {
-	// 	for _, zone := range page.Items {
-	// 		zones = append(zones, zone.Description)
-	// 	}
-	// 	return nil
-	// }); err != nil {
-	// 	return nil, err
-	// }
 
 	for _, zone := range p.zones {
 		zoneInstances, err := p.Instances(zone)
