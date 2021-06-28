@@ -5,9 +5,10 @@ import (
 )
 
 type Endpoint struct {
-	IP   netaddr.IP `json:"ip,omitempty"`
-	Type string     `json:"type,omitempty"`
-	Name string     `json:"name,omitempty"`
+	Cloud string     `json:"cloud,omitempty"`
+	IP    netaddr.IP `json:"ip,omitempty"`
+	Type  string     `json:"type,omitempty"`
+	Name  string     `json:"name,omitempty"`
 }
 
 type Provider interface {

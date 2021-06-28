@@ -6,10 +6,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/kabachook/cirrus/pkg/provider"
+	"go.uber.org/zap"
 )
 
-// GenerateProviderRoutes generates routes for provided provider with prefix `p.Name()`
-func GenerateProviderRoutes(r *gin.RouterGroup, p provider.Provider) {
+// generateProviderRoutes generates routes for provided provider with prefix `p.Name()`
+func generateProviderRoutes(r *gin.RouterGroup, p provider.Provider) {
 	group := r.Group(fmt.Sprintf("/%s", p.Name()))
 	group.GET("/all", func(c *gin.Context) {
 		endpoints, err := p.All()
@@ -19,4 +20,11 @@ func GenerateProviderRoutes(r *gin.RouterGroup, p provider.Provider) {
 		}
 		c.JSON(http.StatusOK, endpoints)
 	})
+}
+
+func (s *Server) providersRoutes(r *gin.RouterGroup, providers []provider.Provider) {
+	for _, provider := range providers {
+		generateProviderRoutes(r, provider)
+		s.logger.Info("Provider added", zap.String("name", provider.Name()))
+	}
 }

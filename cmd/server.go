@@ -23,6 +23,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"os"
 	"os/signal"
@@ -31,15 +32,12 @@ import (
 
 	"github.com/kabachook/cirrus/pkg/provider"
 	"github.com/kabachook/cirrus/pkg/provider/gcp"
+	"github.com/kabachook/cirrus/pkg/provider/yc"
 	"github.com/kabachook/cirrus/pkg/server"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"go.uber.org/zap"
 	"google.golang.org/api/option"
-)
-
-var (
-	listen           string
-	providersEnabled []string
 )
 
 var serverCmd = &cobra.Command{
@@ -49,6 +47,7 @@ var serverCmd = &cobra.Command{
 		v := viper.GetViper()
 		ctx := context.Background()
 
+		providersEnabled := v.GetStringSlice("server.providers")
 		var providers []provider.Provider
 
 		if len(providersEnabled) == 0 {
@@ -56,9 +55,12 @@ var serverCmd = &cobra.Command{
 			return
 		}
 
+		logger.Debug("Adding providers", zap.Any("providers", providersEnabled))
+
 		for _, name := range providersEnabled {
 			switch name {
 			case "gcp":
+				logger.Debug("Adding gcp")
 				p, err := gcp.New(ctx, gcp.Config{
 					Project: v.GetString("gcp.project"),
 					Options: []option.ClientOption{
@@ -72,13 +74,26 @@ var serverCmd = &cobra.Command{
 					return
 				}
 				providers = append(providers, p)
+			case "yc":
+				logger.Debug("Adding yc")
+				p, err := yc.New(ctx, yc.Config{
+					FolderID: v.GetString("yc.folderId"),
+					Token:    v.GetString("yc.token"),
+					Zones:    v.GetStringSlice("yc.zones"),
+					Logger:   logger.Named("yc"),
+				})
+				if err != nil {
+					logger.Error(err.Error())
+					return
+				}
+				providers = append(providers, p)
 			}
 		}
 
 		server, err := server.New(ctx, server.Config{
 			Logger: logger.Named("server"),
 			Server: &http.Server{
-				Addr: listen,
+				Addr: v.GetString("server.listen"),
 			},
 			Providers: providers,
 		})
@@ -90,7 +105,9 @@ var serverCmd = &cobra.Command{
 		go listenToSystemSignals(ctx, server)
 
 		if err = server.Run(); err != nil {
-			logger.Error(err.Error())
+			if !errors.Is(err, http.ErrServerClosed) {
+				logger.Error(err.Error())
+			}
 		}
 	},
 }
@@ -98,8 +115,8 @@ var serverCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(serverCmd)
 
-	serverCmd.PersistentFlags().StringVar(&listen, "listen", ":3232", "Address to listen to")
-	serverCmd.PersistentFlags().StringSliceVar(&providersEnabled, "providers", []string{"gcp"}, "Providers enabled")
+	serverCmd.PersistentFlags().String("listen", ":3232", "Address to listen to")
+	serverCmd.PersistentFlags().StringSlice("providers", []string{}, "Providers enabled")
 	viper.BindPFlag("server.listen", serverCmd.PersistentFlags().Lookup("listen"))
 	viper.BindPFlag("server.providers", serverCmd.PersistentFlags().Lookup("providers"))
 }

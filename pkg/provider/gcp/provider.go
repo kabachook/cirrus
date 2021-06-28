@@ -10,6 +10,8 @@ import (
 	"inet.af/netaddr"
 )
 
+const name = "gcp"
+
 type Provider struct {
 	ctx     context.Context
 	service *compute.Service
@@ -41,7 +43,7 @@ func New(ctx context.Context, cfg Config) (*Provider, error) {
 }
 
 func (p *Provider) Name() string {
-	return "gcp"
+	return name
 }
 
 func (p *Provider) Instances(zone string) ([]provider.Endpoint, error) {
@@ -49,6 +51,7 @@ func (p *Provider) Instances(zone string) ([]provider.Endpoint, error) {
 
 	req := p.service.Instances.List(p.project, zone)
 	if err := req.Pages(p.ctx, func(page *compute.InstanceList) error {
+		p.logger.Debug("Response", zap.Any("instances", page.Items))
 		p.logger.Debug("Fetching endpoints", zap.String("zone", zone))
 		for _, instance := range page.Items {
 			for _, iface := range instance.NetworkInterfaces {
@@ -62,6 +65,20 @@ func (p *Provider) Instances(zone string) ([]provider.Endpoint, error) {
 					Name: instance.Name,
 					Type: instance.Kind,
 				})
+
+				for _, aconf := range iface.AccessConfigs {
+					if aconf.NatIP != "" {
+						ip, err := netaddr.ParseIP(aconf.NatIP)
+						if err != nil {
+							return err
+						}
+						endpoints = append(endpoints, provider.Endpoint{
+							IP:   ip,
+							Name: instance.Name,
+							Type: instance.Kind,
+						})
+					}
+				}
 			}
 		}
 		return nil
@@ -73,7 +90,7 @@ func (p *Provider) Instances(zone string) ([]provider.Endpoint, error) {
 }
 
 func (p *Provider) All() ([]provider.Endpoint, error) {
-	var endpoints []provider.Endpoint
+	endpoints := make([]provider.Endpoint, 0)
 
 	p.logger.Debug("Getting endpoints", zap.String("project", p.project))
 
@@ -83,6 +100,10 @@ func (p *Provider) All() ([]provider.Endpoint, error) {
 			return nil, err
 		}
 		endpoints = append(endpoints, zoneInstances...)
+	}
+
+	for i := range endpoints {
+		endpoints[i].Cloud = name
 	}
 
 	return endpoints, nil

@@ -10,6 +10,8 @@ import (
 	"inet.af/netaddr"
 )
 
+const name = "yc"
+
 type Provider struct {
 	ctx      context.Context
 	sdk      *ycsdk.SDK
@@ -43,10 +45,10 @@ func New(ctx context.Context, cfg Config) (*Provider, error) {
 }
 
 func (p *Provider) Name() string {
-	return "yc"
+	return name
 }
 
-func (p *Provider) Instances(zone string) ([]provider.Endpoint, error) {
+func (p *Provider) Instances() ([]provider.Endpoint, error) {
 	const typeName = "instance"
 	var endpoints []provider.Endpoint
 
@@ -56,6 +58,8 @@ func (p *Provider) Instances(zone string) ([]provider.Endpoint, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	p.logger.Debug("Response", zap.Any("instances", res.Instances))
 
 	for _, instance := range res.Instances {
 		for _, iface := range instance.GetNetworkInterfaces() {
@@ -92,16 +96,21 @@ func (p *Provider) Instances(zone string) ([]provider.Endpoint, error) {
 }
 
 func (p *Provider) All() ([]provider.Endpoint, error) {
-	var endpoints []provider.Endpoint
+	endpoints := make([]provider.Endpoint, 0)
 
 	p.logger.Debug("Getting endpoints", zap.String("folderId", p.folderId))
 
-	for _, zone := range p.zones {
-		zoneInstances, err := p.Instances(zone)
-		if err != nil {
-			return nil, err
-		}
-		endpoints = append(endpoints, zoneInstances...)
+	// No zones for this call
+	// for _, zone := range p.zones {
+	zoneInstances, err := p.Instances()
+	if err != nil {
+		return nil, err
+	}
+	endpoints = append(endpoints, zoneInstances...)
+	// }
+
+	for i := range endpoints {
+		endpoints[i].Cloud = name
 	}
 
 	return endpoints, nil
