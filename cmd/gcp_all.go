@@ -24,7 +24,6 @@ package cmd
 import (
 	"context"
 
-	"github.com/kabachook/cirrus/pkg/config"
 	"github.com/kabachook/cirrus/pkg/provider/gcp"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -35,7 +34,7 @@ var allCmd = &cobra.Command{
 	Use:   "all",
 	Short: "List IPs of all resources",
 	Run: func(cmd *cobra.Command, args []string) {
-		logger := config.Logger
+		ctx := context.Background()
 
 		project, err := cmd.Parent().PersistentFlags().GetString("project")
 		if err != nil {
@@ -53,8 +52,12 @@ var allCmd = &cobra.Command{
 			logger.Error(err.Error())
 			return
 		}
+		output, err := cmd.Parent().PersistentFlags().GetString("output")
+		if err != nil {
+			logger.Error(err.Error())
+			return
+		}
 
-		ctx := context.Background()
 		provider, err := gcp.New(ctx, gcp.Config{
 			Project: project,
 			Options: []option.ClientOption{
@@ -74,7 +77,15 @@ var allCmd = &cobra.Command{
 			return
 		}
 
-		logger.Info("Got endpoints", zap.Any("endpoints", endpoints))
+		logger.Info("Got endpoints")
+		switch output {
+		case "text":
+			for _, endpoint := range endpoints {
+				logger.Sugar().Infof("type: %s\tname: %s\tip: %s", endpoint.Type, endpoint.Name, endpoint.IP)
+			}
+		case "json":
+			logger.Info("", zap.Any("endpoints", endpoints))
+		}
 
 	},
 }

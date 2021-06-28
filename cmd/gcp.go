@@ -37,8 +37,7 @@ var gcpCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(gcpCmd)
 
-	// TODO: implement different output
-	gcpCmd.Flags().StringP("output", "o", "text", "Output format")
+	gcpCmd.PersistentFlags().StringP("output", "o", "text", "Output format")
 
 	gcpCmd.PersistentFlags().String("project", "", "Project name")
 	gcpCmd.PersistentFlags().String("key", "", "ServiceAccount JSON key file")

@@ -29,7 +29,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/kabachook/cirrus/pkg/config"
 	"github.com/kabachook/cirrus/pkg/provider"
 	"github.com/kabachook/cirrus/pkg/provider/gcp"
 	"github.com/kabachook/cirrus/pkg/server"
@@ -37,8 +36,6 @@ import (
 	"github.com/spf13/viper"
 	"google.golang.org/api/option"
 )
-
-var logger = config.Logger
 
 var (
 	listen           string

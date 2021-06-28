@@ -31,6 +31,7 @@ import (
 )
 
 var cfgFile string
+var logger = config.Logger
 
 var rootCmd = &cobra.Command{
 	Use:   "cirrus",
@@ -67,6 +68,6 @@ func initConfig() {
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
-		config.Logger.Debug("Config loaded", zap.String("file", viper.ConfigFileUsed()))
+		logger.Debug("Config loaded", zap.String("file", viper.ConfigFileUsed()))
 	}
 }
