@@ -43,6 +43,7 @@ func (s *Server) init(cfg Config) error {
 	s.router.Use(ginzap.RecoveryWithZap(s.logger, true))
 
 	api := s.router.Group("/v1")
+
 	// /v1/<name>/all routes
 	s.providersRoutes(api, cfg.Providers)
 

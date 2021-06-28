@@ -10,7 +10,7 @@ import (
 	"inet.af/netaddr"
 )
 
-const name = "yc"
+const Name = "yc"
 
 type Provider struct {
 	ctx      context.Context
@@ -45,7 +45,7 @@ func New(ctx context.Context, cfg Config) (*Provider, error) {
 }
 
 func (p *Provider) Name() string {
-	return name
+	return Name
 }
 
 func (p *Provider) Instances() ([]provider.Endpoint, error) {
@@ -110,7 +110,7 @@ func (p *Provider) All() ([]provider.Endpoint, error) {
 	// }
 
 	for i := range endpoints {
-		endpoints[i].Cloud = name
+		endpoints[i].Cloud = Name
 	}
 
 	return endpoints, nil

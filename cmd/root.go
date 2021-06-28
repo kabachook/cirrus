@@ -41,7 +41,7 @@ var rootCmd = &cobra.Command{
 
 func Execute() {
 	cobra.CheckErr(rootCmd.Execute())
-	config.Logger.Sync()
+	logger.Sync()
 }
 
 func init() {
