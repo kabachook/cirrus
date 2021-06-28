@@ -29,7 +29,6 @@ import (
 var gcpCmd = &cobra.Command{
 	Use:   "gcp",
 	Short: "Google Cloud Platform",
-	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
 		cmd.Help()
 	},
@@ -43,7 +42,7 @@ func init() {
 
 	gcpCmd.PersistentFlags().String("project", "", "Project name")
 	gcpCmd.PersistentFlags().String("key", "", "ServiceAccount JSON key file")
-	gcpCmd.PersistentFlags().StringArray("zones", []string{"europe-north1-a", "europe-north1-b", "europe-north1-c"}, "GCP Zones to enumerate")
+	gcpCmd.PersistentFlags().StringSlice("zones", []string{"europe-north1-a", "europe-north1-b", "europe-north1-c"}, "GCP Zones to enumerate")
 	viper.BindPFlag("gcp.project", gcpCmd.PersistentFlags().Lookup("project"))
 	viper.BindPFlag("gcp.key", gcpCmd.PersistentFlags().Lookup("key"))
 	viper.BindPFlag("gcp.zones", gcpCmd.PersistentFlags().Lookup("zones"))

@@ -48,12 +48,19 @@ var allCmd = &cobra.Command{
 			return
 		}
 
+		zones, err := cmd.Parent().PersistentFlags().GetStringSlice("zones")
+		if err != nil {
+			logger.Error(err.Error())
+			return
+		}
+
 		ctx := context.Background()
 		provider, err := gcp.New(ctx, gcp.Config{
 			Project: project,
 			Options: []option.ClientOption{
 				option.WithCredentialsFile(key),
 			},
+			Zones:  zones,
 			Logger: logger.Named("gcp"),
 		})
 		if err != nil {

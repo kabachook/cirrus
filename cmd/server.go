@@ -40,7 +40,10 @@ import (
 
 var logger = config.Logger
 
-var addr string
+var (
+	listen           string
+	providersEnabled []string
+)
 
 var serverCmd = &cobra.Command{
 	Use:   "server",
@@ -49,24 +52,38 @@ var serverCmd = &cobra.Command{
 		v := viper.GetViper()
 		ctx := context.Background()
 
-		gcpProvider, err := gcp.New(ctx, gcp.Config{
-			Project: v.GetString("gcp.project"),
-			Options: []option.ClientOption{
-				option.WithCredentialsFile(v.GetString("gcp.key")),
-			},
-			Logger: logger.Named("gcp"),
-		})
-		if err != nil {
-			logger.Error(err.Error())
+		var providers []provider.Provider
+
+		if len(providersEnabled) == 0 {
+			logger.Error("No providers enabled")
 			return
+		}
+
+		for _, name := range providersEnabled {
+			switch name {
+			case "gcp":
+				p, err := gcp.New(ctx, gcp.Config{
+					Project: v.GetString("gcp.project"),
+					Options: []option.ClientOption{
+						option.WithCredentialsFile(v.GetString("gcp.key")),
+					},
+					Zones:  v.GetStringSlice("gcp.zones"),
+					Logger: logger.Named("gcp"),
+				})
+				if err != nil {
+					logger.Error(err.Error())
+					return
+				}
+				providers = append(providers, p)
+			}
 		}
 
 		server, err := server.New(ctx, server.Config{
 			Logger: logger.Named("server"),
 			Server: &http.Server{
-				Addr: addr,
+				Addr: listen,
 			},
-			Providers: []provider.Provider{gcpProvider},
+			Providers: providers,
 		})
 		if err != nil {
 			logger.Error(err.Error())
@@ -74,13 +91,20 @@ var serverCmd = &cobra.Command{
 		}
 
 		go listenToSystemSignals(ctx, server)
+
+		if err = server.Run(); err != nil {
+			logger.Error(err.Error())
+		}
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(serverCmd)
 
-	serverCmd.Flags().StringVar(&addr, "listen", ":3232", "Address to listen to")
+	serverCmd.PersistentFlags().StringVar(&listen, "listen", ":3232", "Address to listen to")
+	serverCmd.PersistentFlags().StringSliceVar(&providersEnabled, "providers", []string{"gcp"}, "Providers enabled")
+	viper.BindPFlag("server.listen", serverCmd.PersistentFlags().Lookup("listen"))
+	viper.BindPFlag("server.providers", serverCmd.PersistentFlags().Lookup("providers"))
 }
 
 func listenToSystemSignals(ctx context.Context, s *server.Server) {
@@ -92,6 +116,7 @@ func listenToSystemSignals(ctx context.Context, s *server.Server) {
 	for {
 		select {
 		case <-signalChan:
+			logger.Info("Shutting down...")
 			ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 			defer cancel()
 			if err := s.Shutdown(ctx); err != nil {

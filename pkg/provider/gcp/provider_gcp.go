@@ -15,12 +15,14 @@ type ProviderGCP struct {
 	service *compute.Service
 	logger  *zap.Logger
 	project string
+	zones   []string
 }
 
 type Config struct {
 	Project string
 	Options []option.ClientOption
 	Logger  *zap.Logger
+	Zones   []string
 }
 
 func New(ctx context.Context, cfg Config) (*ProviderGCP, error) {
@@ -34,6 +36,7 @@ func New(ctx context.Context, cfg Config) (*ProviderGCP, error) {
 		service: service,
 		logger:  cfg.Logger,
 		project: cfg.Project,
+		zones:   cfg.Zones,
 	}, nil
 }
 
@@ -74,18 +77,18 @@ func (p *ProviderGCP) All() ([]provider.Endpoint, error) {
 
 	p.logger.Debug("Getting endpoints", zap.String("project", p.project))
 
-	var zones []string
-	req := p.service.Zones.List(p.project)
-	if err := req.Pages(p.ctx, func(page *compute.ZoneList) error {
-		for _, zone := range page.Items {
-			zones = append(zones, zone.Description)
-		}
-		return nil
-	}); err != nil {
-		return nil, err
-	}
+	// var zones []string
+	// req := p.service.Zones.List(p.project)
+	// if err := req.Pages(p.ctx, func(page *compute.ZoneList) error {
+	// 	for _, zone := range page.Items {
+	// 		zones = append(zones, zone.Description)
+	// 	}
+	// 	return nil
+	// }); err != nil {
+	// 	return nil, err
+	// }
 
-	for _, zone := range zones {
+	for _, zone := range p.zones {
 		zoneInstances, err := p.Instances(zone)
 		if err != nil {
 			return nil, err
