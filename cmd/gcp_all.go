@@ -24,8 +24,10 @@ package cmd
 import (
 	"context"
 
+	cmdGen "github.com/kabachook/cirrus/pkg/cmd"
 	"github.com/kabachook/cirrus/pkg/provider/gcp"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"google.golang.org/api/option"
 )
@@ -34,24 +36,12 @@ var gcpAllCmd = &cobra.Command{
 	Use:   "all",
 	Short: "List IPs of all resources",
 	Run: func(cmd *cobra.Command, args []string) {
+		v := viper.GetViper()
 		ctx := context.Background()
 
-		project, err := cmd.Parent().PersistentFlags().GetString("project")
-		if err != nil {
-			logger.Error(err.Error())
-			return
-		}
-		key, err := cmd.Parent().PersistentFlags().GetString("key")
-		if err != nil {
-			logger.Error(err.Error())
-			return
-		}
-
-		zones, err := cmd.Parent().PersistentFlags().GetStringSlice("zones")
-		if err != nil {
-			logger.Error(err.Error())
-			return
-		}
+		project := v.GetString(cmdGen.GcpProject)
+		key := v.GetString(cmdGen.GcpKey)
+		zones := v.GetStringSlice(cmdGen.GcpZones)
 		output, err := cmd.Parent().PersistentFlags().GetString("output")
 		if err != nil {
 			logger.Error(err.Error())

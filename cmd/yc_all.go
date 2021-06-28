@@ -24,6 +24,7 @@ package cmd
 import (
 	"context"
 
+	cmdGen "github.com/kabachook/cirrus/pkg/cmd"
 	"github.com/kabachook/cirrus/pkg/provider/yc"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -34,39 +35,24 @@ var ycAllCmd = &cobra.Command{
 	Use:   "all",
 	Short: "List IPs of all resources",
 	Run: func(cmd *cobra.Command, args []string) {
+		v := viper.GetViper()
 		ctx := context.Background()
 
-		folderId, err := cmd.Parent().PersistentFlags().GetString("folder-id")
-		if err != nil {
-			logger.Error(err.Error())
-			return
-		}
-		token, err := cmd.Parent().PersistentFlags().GetString("token")
-		if err != nil {
-			logger.Error(err.Error())
-			return
-		}
-
-		zones, err := cmd.Parent().PersistentFlags().GetStringSlice("zones")
-		if err != nil {
-			logger.Error(err.Error())
-			return
-		}
+		folderId := v.GetString(cmdGen.YcFolderId)
+		token := v.GetString(cmdGen.YcToken)
+		zones := v.GetStringSlice(cmdGen.YcZones)
 		output, err := cmd.Parent().PersistentFlags().GetString("output")
 		if err != nil {
 			logger.Error(err.Error())
 			return
 		}
 
-		cfg := yc.Config{
+		provider, err := yc.New(ctx, yc.Config{
 			FolderID: folderId,
 			Token:    token,
 			Zones:    zones,
 			Logger:   logger.Named(yc.Name),
-		}
-		logger.Debug("Viper config", zap.Any("config", viper.AllSettings()))
-		logger.Debug("Config", zap.Any("config", cfg))
-		provider, err := yc.New(ctx, cfg)
+		})
 		if err != nil {
 			logger.Error(err.Error())
 			return
