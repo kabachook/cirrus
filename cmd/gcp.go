@@ -22,6 +22,7 @@ THE SOFTWARE.
 package cmd
 
 import (
+	cmdGen "github.com/kabachook/cirrus/pkg/cmd"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -42,7 +43,7 @@ func init() {
 	gcpCmd.PersistentFlags().String("project", "", "Project name")
 	gcpCmd.PersistentFlags().String("key", "", "ServiceAccount JSON key file")
 	gcpCmd.PersistentFlags().StringSlice("zones", []string{"europe-north1-a", "europe-north1-b", "europe-north1-c"}, "GCP Zones to enumerate")
-	viper.BindPFlag("gcp.project", gcpCmd.PersistentFlags().Lookup("project"))
-	viper.BindPFlag("gcp.key", gcpCmd.PersistentFlags().Lookup("key"))
-	viper.BindPFlag("gcp.zones", gcpCmd.PersistentFlags().Lookup("zones"))
+	viper.BindPFlag(cmdGen.GcpProject, gcpCmd.PersistentFlags().Lookup("project"))
+	viper.BindPFlag(cmdGen.GcpKey, gcpCmd.PersistentFlags().Lookup("key"))
+	viper.BindPFlag(cmdGen.GcpZones, gcpCmd.PersistentFlags().Lookup("zones"))
 }

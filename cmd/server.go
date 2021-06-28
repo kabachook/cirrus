@@ -30,6 +30,8 @@ import (
 	"syscall"
 	"time"
 
+	cmdGen "github.com/kabachook/cirrus/pkg/cmd"
+
 	"github.com/kabachook/cirrus/pkg/provider"
 	"github.com/kabachook/cirrus/pkg/provider/gcp"
 	"github.com/kabachook/cirrus/pkg/provider/yc"
@@ -47,7 +49,7 @@ var serverCmd = &cobra.Command{
 		v := viper.GetViper()
 		ctx := context.Background()
 
-		providersEnabled := v.GetStringSlice("server.providers")
+		providersEnabled := v.GetStringSlice(cmdGen.ServerProviders)
 		var providers []provider.Provider
 
 		if len(providersEnabled) == 0 {
@@ -62,12 +64,12 @@ var serverCmd = &cobra.Command{
 			case "gcp":
 				logger.Debug("Adding gcp")
 				p, err := gcp.New(ctx, gcp.Config{
-					Project: v.GetString("gcp.project"),
+					Project: v.GetString(cmdGen.GcpProject),
 					Options: []option.ClientOption{
-						option.WithCredentialsFile(v.GetString("gcp.key")),
+						option.WithCredentialsFile(v.GetString(cmdGen.GcpKey)),
 					},
-					Zones:  v.GetStringSlice("gcp.zones"),
-					Logger: logger.Named("gcp"),
+					Zones:  v.GetStringSlice(cmdGen.GcpZones),
+					Logger: logger.Named(gcp.Name),
 				})
 				if err != nil {
 					logger.Error(err.Error())
@@ -77,10 +79,10 @@ var serverCmd = &cobra.Command{
 			case "yc":
 				logger.Debug("Adding yc")
 				p, err := yc.New(ctx, yc.Config{
-					FolderID: v.GetString("yc.folderId"),
-					Token:    v.GetString("yc.token"),
-					Zones:    v.GetStringSlice("yc.zones"),
-					Logger:   logger.Named("yc"),
+					FolderID: v.GetString(cmdGen.YcFolderId),
+					Token:    v.GetString(cmdGen.YcToken),
+					Zones:    v.GetStringSlice(cmdGen.YcZones),
+					Logger:   logger.Named(yc.Name),
 				})
 				if err != nil {
 					logger.Error(err.Error())
@@ -93,7 +95,7 @@ var serverCmd = &cobra.Command{
 		server, err := server.New(ctx, server.Config{
 			Logger: logger.Named("server"),
 			Server: &http.Server{
-				Addr: v.GetString("server.listen"),
+				Addr: v.GetString(cmdGen.ServerListen),
 			},
 			Providers: providers,
 		})
@@ -117,8 +119,10 @@ func init() {
 
 	serverCmd.PersistentFlags().String("listen", ":3232", "Address to listen to")
 	serverCmd.PersistentFlags().StringSlice("providers", []string{}, "Providers enabled")
-	viper.BindPFlag("server.listen", serverCmd.PersistentFlags().Lookup("listen"))
-	viper.BindPFlag("server.providers", serverCmd.PersistentFlags().Lookup("providers"))
+	serverCmd.PersistentFlags().String("db-path", "cirrus.db", "Database path")
+	viper.BindPFlag(cmdGen.ServerListen, serverCmd.PersistentFlags().Lookup("listen"))
+	viper.BindPFlag(cmdGen.ServerProviders, serverCmd.PersistentFlags().Lookup("providers"))
+	viper.BindPFlag(cmdGen.DbPath, serverCmd.PersistentFlags().Lookup("db-path"))
 }
 
 func listenToSystemSignals(ctx context.Context, s *server.Server) {

@@ -7,6 +7,7 @@ import (
 
 	ginzap "github.com/gin-contrib/zap"
 	"github.com/gin-gonic/gin"
+	"github.com/kabachook/cirrus/pkg/database"
 	"github.com/kabachook/cirrus/pkg/provider"
 	"go.uber.org/zap"
 )
@@ -15,6 +16,7 @@ type Server struct {
 	ctx       context.Context
 	logger    *zap.Logger
 	router    *gin.Engine
+	db        *database.Database
 	server    *http.Server
 	providers map[string]provider.Provider
 }
@@ -22,6 +24,7 @@ type Server struct {
 type Config struct {
 	Logger    *zap.Logger
 	Providers []provider.Provider
+	Database  *database.Database
 	Server    *http.Server
 }
 
@@ -30,6 +33,7 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 		ctx:       ctx,
 		logger:    cfg.Logger,
 		router:    gin.Default(),
+		db:        cfg.Database,
 		providers: make(map[string]provider.Provider),
 	}
 	if err := s.init(cfg); err != nil {
