@@ -3,15 +3,17 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/kabachook/cirrus/pkg/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"go.uber.org/zap"
 )
 
 var force bool
 
+// NewConfig generates `config dump` command
 func NewConfig() *cobra.Command {
 	v := viper.GetViper()
+	logger := config.Logger
 	rootCmd := &cobra.Command{
 		Use:   "config",
 		Short: "Manipulate config",
@@ -21,25 +23,21 @@ func NewConfig() *cobra.Command {
 		Use:   "dump",
 		Short: fmt.Sprintf("Dump config to %s", v.ConfigFileUsed()),
 		Run: func(cmd *cobra.Command, args []string) {
-			logger, _ := zap.NewDevelopment()
-			defer logger.Sync()
-			sugar := logger.Sugar()
-
 			if force {
 				err := viper.WriteConfig()
 				if err != nil {
-					sugar.Fatal(err)
+					logger.Error(err.Error())
 				}
 			} else {
 				err := viper.SafeWriteConfig()
 				if err != nil {
-					sugar.Fatal(err)
+					logger.Fatal(err.Error())
 				}
 			}
 		}}
 
 	dumpCmd.Flags().BoolVarP(&force, "force", "f", false, "Force overwrite config files")
-
 	rootCmd.AddCommand(dumpCmd)
+
 	return rootCmd
 }

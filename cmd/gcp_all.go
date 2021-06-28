@@ -34,39 +34,40 @@ import (
 var allCmd = &cobra.Command{
 	Use:   "all",
 	Short: "List IPs of all resources",
-	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		logger, _ := zap.NewDevelopment()
-		defer logger.Sync()
-		sugar := logger.Sugar()
+		logger := config.Logger
 
 		project, err := cmd.Parent().PersistentFlags().GetString("project")
 		if err != nil {
-			sugar.Fatal(err)
+			logger.Error(err.Error())
+			return
 		}
 		key, err := cmd.Parent().PersistentFlags().GetString("key")
 		if err != nil {
-			sugar.Fatal(err)
+			logger.Error(err.Error())
+			return
 		}
 
 		ctx := context.Background()
-		provider, err := gcp.New(ctx, config.ConfigGCP{
+		provider, err := gcp.New(ctx, gcp.Config{
 			Project: project,
 			Options: []option.ClientOption{
 				option.WithCredentialsFile(key),
 			},
-			Logger: sugar.Named("gcp").Desugar(),
+			Logger: logger.Named("gcp"),
 		})
 		if err != nil {
-			sugar.Fatal(err)
+			logger.Error(err.Error())
+			return
 		}
 
 		endpoints, err := provider.All()
 		if err != nil {
-			sugar.Fatal(err)
+			logger.Error(err.Error())
+			return
 		}
 
-		sugar.Infow("Got endpoints", zap.Any("endpoints", endpoints))
+		logger.Info("Got endpoints", zap.Any("endpoints", endpoints))
 
 	},
 }

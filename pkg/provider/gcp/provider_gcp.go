@@ -3,10 +3,10 @@ package gcp
 import (
 	"context"
 
-	"github.com/kabachook/cirrus/pkg/config"
 	"github.com/kabachook/cirrus/pkg/provider"
 	"go.uber.org/zap"
 	"google.golang.org/api/compute/v1"
+	"google.golang.org/api/option"
 	"inet.af/netaddr"
 )
 
@@ -17,7 +17,13 @@ type ProviderGCP struct {
 	project string
 }
 
-func New(ctx context.Context, cfg config.ConfigGCP) (*ProviderGCP, error) {
+type Config struct {
+	Project string
+	Options []option.ClientOption
+	Logger  *zap.Logger
+}
+
+func New(ctx context.Context, cfg Config) (*ProviderGCP, error) {
 	service, err := compute.NewService(ctx, cfg.Options...)
 	if err != nil {
 		return nil, err

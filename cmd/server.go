@@ -22,51 +22,18 @@ THE SOFTWARE.
 package cmd
 
 import (
-	"github.com/kabachook/cirrus/pkg/config"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-	"go.uber.org/zap"
-
-	homedir "github.com/mitchellh/go-homedir"
 )
 
-var cfgFile string
-
-var rootCmd = &cobra.Command{
-	Use:   "cirrus",
-	Short: "Cloud Inventory made easy",
+var serverCmd = &cobra.Command{
+	Use:   "server",
+	Short: "Run as server",
 	Long:  ``,
-}
-
-func Execute() {
-	cobra.CheckErr(rootCmd.Execute())
-	config.Logger.Sync()
+	Run: func(cmd *cobra.Command, args []string) {
+		cmd.Help()
+	},
 }
 
 func init() {
-	cobra.OnInitialize(initConfig)
-
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.cirrus.yaml)")
-}
-
-func initConfig() {
-	if cfgFile != "" {
-		viper.SetConfigFile(cfgFile)
-	} else {
-		// Find home directory.
-		home, err := homedir.Dir()
-		cobra.CheckErr(err)
-
-		// Search config in home directory with name ".cirrus" (without extension).
-		viper.AddConfigPath(home)
-		viper.SetConfigName(".cirrus")
-		viper.SetConfigType("yaml")
-	}
-
-	viper.AutomaticEnv() // read in environment variables that match
-
-	// If a config file is found, read it in.
-	if err := viper.ReadInConfig(); err == nil {
-		config.Logger.Debug("Config loaded", zap.String("file", viper.ConfigFileUsed()))
-	}
+	rootCmd.AddCommand(serverCmd)
 }
