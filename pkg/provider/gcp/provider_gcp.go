@@ -37,6 +37,10 @@ func New(ctx context.Context, cfg Config) (*ProviderGCP, error) {
 	}, nil
 }
 
+func (p *ProviderGCP) Name() string {
+	return "gcp"
+}
+
 func (p *ProviderGCP) Instances(zone string) ([]provider.Endpoint, error) {
 	var endpoints []provider.Endpoint
 

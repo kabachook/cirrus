@@ -1,8 +1,6 @@
 package provider
 
 import (
-	"context"
-
 	"inet.af/netaddr"
 )
 
@@ -13,6 +11,6 @@ type Endpoint struct {
 }
 
 type Provider interface {
-	New(context.Context) (*Provider, error)
-	All() ([]*Endpoint, error)
+	All() ([]Endpoint, error)
+	Name() string
 }

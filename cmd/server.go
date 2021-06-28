@@ -22,18 +22,82 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"context"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"github.com/kabachook/cirrus/pkg/config"
+	"github.com/kabachook/cirrus/pkg/provider"
+	"github.com/kabachook/cirrus/pkg/provider/gcp"
+	"github.com/kabachook/cirrus/pkg/server"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+	"google.golang.org/api/option"
 )
+
+var logger = config.Logger
+
+var addr string
 
 var serverCmd = &cobra.Command{
 	Use:   "server",
 	Short: "Run as server",
-	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		cmd.Help()
+		v := viper.GetViper()
+		ctx := context.Background()
+
+		gcpProvider, err := gcp.New(ctx, gcp.Config{
+			Project: v.GetString("gcp.project"),
+			Options: []option.ClientOption{
+				option.WithCredentialsFile(v.GetString("gcp.key")),
+			},
+			Logger: logger.Named("gcp"),
+		})
+		if err != nil {
+			logger.Error(err.Error())
+			return
+		}
+
+		server, err := server.New(ctx, server.Config{
+			Logger: logger.Named("server"),
+			Server: &http.Server{
+				Addr: addr,
+			},
+			Providers: []provider.Provider{gcpProvider},
+		})
+		if err != nil {
+			logger.Error(err.Error())
+			return
+		}
+
+		go listenToSystemSignals(ctx, server)
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(serverCmd)
+
+	serverCmd.Flags().StringVar(&addr, "listen", ":3232", "Address to listen to")
+}
+
+func listenToSystemSignals(ctx context.Context, s *server.Server) {
+	signalChan := make(chan os.Signal, 1)
+
+	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
+
+	//lint:ignore S1000 side-effects
+	for {
+		select {
+		case <-signalChan:
+			ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+			defer cancel()
+			if err := s.Shutdown(ctx); err != nil {
+				logger.Error("Timed out waiting for server to shut down")
+			}
+			return
+		}
+	}
 }
