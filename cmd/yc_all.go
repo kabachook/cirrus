@@ -24,24 +24,24 @@ package cmd
 import (
 	"context"
 
-	"github.com/kabachook/cirrus/pkg/provider/gcp"
+	"github.com/kabachook/cirrus/pkg/provider/yc"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"go.uber.org/zap"
-	"google.golang.org/api/option"
 )
 
-var gcpAllCmd = &cobra.Command{
+var ycAllCmd = &cobra.Command{
 	Use:   "all",
 	Short: "List IPs of all resources",
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx := context.Background()
 
-		project, err := cmd.Parent().PersistentFlags().GetString("project")
+		folderId, err := cmd.Parent().PersistentFlags().GetString("folder-id")
 		if err != nil {
 			logger.Error(err.Error())
 			return
 		}
-		key, err := cmd.Parent().PersistentFlags().GetString("key")
+		token, err := cmd.Parent().PersistentFlags().GetString("token")
 		if err != nil {
 			logger.Error(err.Error())
 			return
@@ -58,14 +58,15 @@ var gcpAllCmd = &cobra.Command{
 			return
 		}
 
-		provider, err := gcp.New(ctx, gcp.Config{
-			Project: project,
-			Options: []option.ClientOption{
-				option.WithCredentialsFile(key),
-			},
-			Zones:  zones,
-			Logger: logger.Named("gcp"),
-		})
+		cfg := yc.Config{
+			FolderID: folderId,
+			Token:    token,
+			Zones:    zones,
+			Logger:   logger.Named(yc.Name),
+		}
+		logger.Debug("Viper config", zap.Any("config", viper.AllSettings()))
+		logger.Debug("Config", zap.Any("config", cfg))
+		provider, err := yc.New(ctx, cfg)
 		if err != nil {
 			logger.Error(err.Error())
 			return
@@ -91,5 +92,5 @@ var gcpAllCmd = &cobra.Command{
 }
 
 func init() {
-	gcpCmd.AddCommand(gcpAllCmd)
+	ycCmd.AddCommand(ycAllCmd)
 }

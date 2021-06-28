@@ -22,52 +22,29 @@ THE SOFTWARE.
 package cmd
 
 import (
-	"github.com/kabachook/cirrus/pkg/config"
+	cmdGen "github.com/kabachook/cirrus/pkg/cmd"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"go.uber.org/zap"
-
-	homedir "github.com/mitchellh/go-homedir"
 )
 
-var cfgFile string
-var logger = config.Logger
-
-var rootCmd = &cobra.Command{
-	Use:   "cirrus",
-	Short: "Cloud Inventory made easy",
-	Long:  ``,
-}
-
-func Execute() {
-	cobra.CheckErr(rootCmd.Execute())
-	logger.Sync()
+var ycCmd = &cobra.Command{
+	Use:   "yc",
+	Short: "Yandex Cloud",
+	Run: func(cmd *cobra.Command, args []string) {
+		cmd.Help()
+	},
 }
 
 func init() {
-	cobra.OnInitialize(initConfig)
+	rootCmd.AddCommand(ycCmd)
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.cirrus.yaml)")
-}
+	ycCmd.PersistentFlags().StringP("output", "o", "text", "Output format")
 
-func initConfig() {
-	if cfgFile != "" {
-		viper.SetConfigFile(cfgFile)
-	} else {
-		// Find home directory.
-		home, err := homedir.Dir()
-		cobra.CheckErr(err)
-
-		// Search config in home directory with name ".cirrus" (without extension).
-		viper.AddConfigPath(home)
-		viper.SetConfigName(".cirrus")
-		viper.SetConfigType("yaml")
-	}
-
-	viper.AutomaticEnv() // read in environment variables that match
-
-	// If a config file is found, read it in.
-	if err := viper.ReadInConfig(); err == nil {
-		logger.Debug("Config loaded", zap.String("file", viper.ConfigFileUsed()), zap.Any("config", viper.AllSettings()))
-	}
+	ycCmd.PersistentFlags().String("folder-id", "", "folderId")
+	ycCmd.PersistentFlags().String("token", "", "OAuth token")
+	ycCmd.PersistentFlags().StringSlice("zones", []string{"ru-central1-a", "ru-central1-b", "ru-central1-c"}, "Zones to enumerate")
+	viper.BindPFlag(cmdGen.YcFolderId, ycCmd.PersistentFlags().Lookup("folder-id"))
+	viper.BindPFlag(cmdGen.YcToken, ycCmd.PersistentFlags().Lookup("token"))
+	viper.BindPFlag(cmdGen.YcZones, ycCmd.PersistentFlags().Lookup("zones"))
 }
