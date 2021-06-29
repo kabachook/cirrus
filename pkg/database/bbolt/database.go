@@ -74,7 +74,6 @@ func (D *Database) Store(timestamp int64, endpoints []provider.Endpoint) error {
 		if err != nil {
 			return err
 		}
-		D.logger.Debug("Serialized endpoints", zap.ByteString("endpoints", endpointsBytes))
 		err = b.Put(timestampToBytes(timestamp), endpointsBytes)
 		return err
 	})
@@ -83,11 +82,12 @@ func (D *Database) Store(timestamp int64, endpoints []provider.Endpoint) error {
 
 func (D *Database) List() ([]database.Snapshot, error) {
 	var snapshots = make([]database.Snapshot, 0)
-	var endpoints []provider.Endpoint
 	err := D.db.View(func(t *bolt.Tx) error {
 		b := t.Bucket(bucketSnapshot)
-		b.ForEach(func(k, v []byte) error {
+		err := b.ForEach(func(k, v []byte) error {
+			var endpoints []provider.Endpoint
 			ts := bytesToTimestamp(k)
+			D.logger.Debug("Get", zap.Int64("ts", ts))
 			err := json.Unmarshal(v, &endpoints)
 			if err != nil {
 				return err
@@ -98,7 +98,7 @@ func (D *Database) List() ([]database.Snapshot, error) {
 			})
 			return nil
 		})
-		return nil
+		return err
 	})
 	if err != nil {
 		return nil, err
