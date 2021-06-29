@@ -13,28 +13,31 @@ import (
 )
 
 type Server struct {
-	ctx       context.Context
-	logger    *zap.Logger
-	router    *gin.Engine
-	db        *database.Database
-	server    *http.Server
-	providers map[string]provider.Provider
+	ctx        context.Context
+	logger     *zap.Logger
+	router     *gin.Engine
+	db         database.Database
+	server     *http.Server
+	providers  map[string]provider.Provider
+	ScanPeriod time.Duration
 }
 
 type Config struct {
-	Logger    *zap.Logger
-	Providers []provider.Provider
-	Database  *database.Database
-	Server    *http.Server
+	Logger     *zap.Logger
+	Providers  []provider.Provider
+	Database   database.Database
+	Server     *http.Server
+	ScanPeriod time.Duration
 }
 
 func New(ctx context.Context, cfg Config) (*Server, error) {
 	s := &Server{
-		ctx:       ctx,
-		logger:    cfg.Logger,
-		router:    gin.Default(),
-		db:        cfg.Database,
-		providers: make(map[string]provider.Provider),
+		ctx:        ctx,
+		logger:     cfg.Logger,
+		router:     gin.Default(),
+		db:         cfg.Database,
+		providers:  make(map[string]provider.Provider),
+		ScanPeriod: cfg.ScanPeriod,
 	}
 	if err := s.init(cfg); err != nil {
 		return nil, err
@@ -64,19 +67,35 @@ func (s *Server) init(cfg Config) error {
 	})
 
 	api.GET("/all", func(c *gin.Context) {
-		endpoints := make([]provider.Endpoint, 0)
-		s.logger.Debug("Getting endpoints for providers", zap.Any("providers", providerNames))
-		for name, provider := range s.providers {
-
-			pEndpoints, err := provider.All()
-			s.logger.Debug("Provider returned", zap.Any("endpoints", pEndpoints), zap.String("provider", name))
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-				return
-			}
-			endpoints = append(endpoints, pEndpoints...)
+		endpoints, err := s.allEndpoints()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
 		}
 		c.JSON(http.StatusOK, endpoints)
+	})
+
+	api.GET("/snapshots", func(c *gin.Context) {
+		snapshots, err := s.db.List()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, snapshots)
+	})
+
+	api.POST("/snapshot/new", func(c *gin.Context) {
+		endpoints, err := s.allEndpoints()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		err = s.db.Store(time.Now().Unix(), endpoints)
+		if err != nil {
+			s.logger.Error("Failed to save snapshot", zap.Error(err))
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
+		c.Status(200)
 	})
 
 	s.server = cfg.Server
@@ -86,6 +105,7 @@ func (s *Server) init(cfg Config) error {
 }
 
 func (s *Server) Run() error {
+	go s.runScanner()
 	return s.server.ListenAndServe()
 }
 

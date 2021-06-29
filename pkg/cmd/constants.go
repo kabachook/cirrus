@@ -21,6 +21,7 @@ const YcZones = Yc + ".zones"
 const Server = "server"
 const ServerListen = Server + ".listen"
 const ServerProviders = Server + ".providers"
+const ServerScan = Server + ".scan"
 
 const Db = "db"
 const DbPath = Db + ".path"

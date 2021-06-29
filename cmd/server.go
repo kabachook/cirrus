@@ -31,6 +31,7 @@ import (
 	"time"
 
 	cmdGen "github.com/kabachook/cirrus/pkg/cmd"
+	"github.com/kabachook/cirrus/pkg/database/bbolt"
 
 	"github.com/kabachook/cirrus/pkg/provider"
 	"github.com/kabachook/cirrus/pkg/provider/gcp"
@@ -92,12 +93,24 @@ var serverCmd = &cobra.Command{
 			}
 		}
 
+		db := bbolt.New(bbolt.Config{
+			Filename: v.GetString(cmdGen.DbPath),
+			Logger:   logger.Named("db"),
+		})
+		err := db.Open()
+		if err != nil {
+			logger.Error(err.Error())
+			return
+		}
+
 		server, err := server.New(ctx, server.Config{
 			Logger: logger.Named("server"),
 			Server: &http.Server{
 				Addr: v.GetString(cmdGen.ServerListen),
 			},
-			Providers: providers,
+			Database:   db,
+			Providers:  providers,
+			ScanPeriod: v.GetDuration(cmdGen.ServerScan),
 		})
 		if err != nil {
 			logger.Error(err.Error())
@@ -119,9 +132,12 @@ func init() {
 
 	serverCmd.PersistentFlags().String("listen", ":3232", "Address to listen to")
 	serverCmd.PersistentFlags().StringSlice("providers", []string{}, "Providers enabled")
+	defaultScan, _ := time.ParseDuration("1h")
+	serverCmd.PersistentFlags().Duration("scan", defaultScan, "Scan period")
 	serverCmd.PersistentFlags().String("db-path", "cirrus.db", "Database path")
 	viper.BindPFlag(cmdGen.ServerListen, serverCmd.PersistentFlags().Lookup("listen"))
 	viper.BindPFlag(cmdGen.ServerProviders, serverCmd.PersistentFlags().Lookup("providers"))
+	viper.BindPFlag(cmdGen.ServerScan, serverCmd.PersistentFlags().Lookup("scan"))
 	viper.BindPFlag(cmdGen.DbPath, serverCmd.PersistentFlags().Lookup("db-path"))
 }
 
@@ -130,9 +146,9 @@ func listenToSystemSignals(ctx context.Context, s *server.Server) {
 
 	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
 
-	//lint:ignore S1000 side-effects
 	for {
 		select {
+		case <-ctx.Done():
 		case <-signalChan:
 			logger.Info("Shutting down...")
 			ctx, cancel := context.WithTimeout(ctx, 30*time.Second)

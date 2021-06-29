@@ -5,8 +5,8 @@ import (
 )
 
 type Snapshot struct {
-	Timestamp int64
-	Endpoints []provider.Endpoint
+	Timestamp int64               `json:"timestamp,omitempty"`
+	Endpoints []provider.Endpoint `json:"endpoints,omitempty"`
 }
 
 type Database interface {

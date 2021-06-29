@@ -16,3 +16,7 @@
 
 # GCP ServiceAccount key
 key*.json
+
+cirrus.db
+.idea
+.vscode

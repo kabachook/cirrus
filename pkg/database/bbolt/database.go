@@ -8,25 +8,30 @@ import (
 	"github.com/kabachook/cirrus/pkg/database"
 	"github.com/kabachook/cirrus/pkg/provider"
 	bolt "go.etcd.io/bbolt"
+	"go.uber.org/zap"
 )
 
 var bucketSnapshot = []byte("snapshots")
 
 type Database struct {
+	database.Database
 	filename string
 	options  *bolt.Options
 	db       *bolt.DB
+	logger   *zap.Logger
 }
 
 type Config struct {
-	filename string
-	options  bolt.Options
+	Filename string
+	Options  bolt.Options
+	Logger   *zap.Logger
 }
 
 func New(cfg Config) *Database {
 	return &Database{
-		filename: cfg.filename,
-		options:  &cfg.options,
+		filename: cfg.Filename,
+		options:  &cfg.Options,
+		logger:   cfg.Logger,
 	}
 }
 
@@ -36,6 +41,7 @@ func (D *Database) Open() error {
 		return err
 	}
 	D.db = db
+	D.logger.Info("Database opened")
 
 	err = D.db.Update(func(t *bolt.Tx) error {
 		_, err := t.CreateBucketIfNotExists(bucketSnapshot)
@@ -61,12 +67,14 @@ func bytesToTimestamp(raw []byte) int64 {
 }
 
 func (D *Database) Store(timestamp int64, endpoints []provider.Endpoint) error {
+	D.logger.Debug("Storing snapshot", zap.Int64("timestamp", timestamp), zap.Any("endpoints", endpoints))
 	err := D.db.Update(func(t *bolt.Tx) error {
 		b := t.Bucket(bucketSnapshot)
 		endpointsBytes, err := json.Marshal(endpoints)
 		if err != nil {
 			return err
 		}
+		D.logger.Debug("Serialized endpoints", zap.ByteString("endpoints", endpointsBytes))
 		err = b.Put(timestampToBytes(timestamp), endpointsBytes)
 		return err
 	})
@@ -104,7 +112,7 @@ func (D *Database) Get(timestamp int64) (*database.Snapshot, error) {
 		b := t.Bucket(bucketSnapshot)
 		bb := b.Get(timestampToBytes(timestamp))
 		if bb == nil {
-			return fmt.Errorf("Snapshot not found")
+			return fmt.Errorf("snapshot not found")
 		}
 		json.Unmarshal(bb, &endpoints)
 		return nil
