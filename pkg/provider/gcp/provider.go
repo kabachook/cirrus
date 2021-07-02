@@ -7,6 +7,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/api/compute/v1"
 	"google.golang.org/api/option"
+	"google.golang.org/api/redis/v1"
 	"inet.af/netaddr"
 )
 
@@ -14,7 +15,8 @@ const Name = "gcp"
 
 type Provider struct {
 	ctx        context.Context
-	service    *compute.Service
+	compute    *compute.Service
+	redis      *redis.Service
 	logger     *zap.Logger
 	project    string
 	zones      []string
@@ -30,14 +32,20 @@ type Config struct {
 }
 
 func New(ctx context.Context, cfg Config) (*Provider, error) {
-	service, err := compute.NewService(ctx, cfg.Options...)
+	computeService, err := compute.NewService(ctx, cfg.Options...)
+	if err != nil {
+		return nil, err
+	}
+
+	reidsService, err := redis.NewService(ctx, cfg.Options...)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Provider{
 		ctx:        ctx,
-		service:    service,
+		compute:    computeService,
+		redis:      reidsService,
 		logger:     cfg.Logger,
 		project:    cfg.Project,
 		zones:      cfg.Zones,
@@ -87,7 +95,7 @@ func processInstanceList(instances []*compute.Instance) ([]provider.Endpoint, er
 func (p *Provider) Instances(zone string) ([]provider.Endpoint, error) {
 	var endpoints []provider.Endpoint
 
-	req := p.service.Instances.List(p.project, zone)
+	req := p.compute.Instances.List(p.project, zone)
 	if err := req.Pages(p.ctx, func(page *compute.InstanceList) error {
 		p.logger.Debug("Response", zap.Any("instances", page.Items))
 		p.logger.Debug("Fetching endpoints", zap.String("zone", zone))
@@ -107,7 +115,7 @@ func (p *Provider) Instances(zone string) ([]provider.Endpoint, error) {
 func (p *Provider) InstancesAggregated() ([]provider.Endpoint, error) {
 	var endpoints []provider.Endpoint
 
-	req := p.service.Instances.AggregatedList(p.project)
+	req := p.compute.Instances.AggregatedList(p.project)
 	if err := req.Pages(p.ctx, func(page *compute.InstanceAggregatedList) error {
 		p.logger.Debug("Response", zap.Any("instances", page.Items))
 
@@ -149,11 +157,12 @@ func processAddressList(addresses []*compute.Address) ([]provider.Endpoint, erro
 func (p *Provider) AddressesAggregated() ([]provider.Endpoint, error) {
 	var endpoints []provider.Endpoint
 
-	req := p.service.Addresses.AggregatedList(p.project)
+	req := p.compute.Addresses.AggregatedList(p.project)
 	if err := req.Pages(p.ctx, func(page *compute.AddressAggregatedList) error {
 		p.logger.Debug("Response", zap.Any("addresses", page.Items))
 
 		for _, scoped := range page.Items {
+			// TODO: check that global zone is skipped
 			scopedEndpoints, err := processAddressList(scoped.Addresses)
 			if err != nil {
 				return err
@@ -170,7 +179,7 @@ func (p *Provider) AddressesAggregated() ([]provider.Endpoint, error) {
 func (p *Provider) GlobalAddresses() ([]provider.Endpoint, error) {
 	var endpoints []provider.Endpoint
 
-	req := p.service.GlobalAddresses.List(p.project)
+	req := p.compute.GlobalAddresses.List(p.project)
 	if err := req.Pages(p.ctx, func(page *compute.AddressList) error {
 		p.logger.Debug("Response", zap.Any("addresses", page.Items))
 
@@ -186,6 +195,34 @@ func (p *Provider) GlobalAddresses() ([]provider.Endpoint, error) {
 	return endpoints, nil
 }
 
+func (p *Provider) RedisAggregated() ([]provider.Endpoint, error) {
+	var endpoints []provider.Endpoint
+
+	req := p.redis.Projects.Locations.Instances.List("projects/" + p.project + "/locations/-")
+	if err := req.Pages(p.ctx, func(page *redis.ListInstancesResponse) error {
+		p.logger.Debug("Response", zap.Any("redis", page.Instances))
+
+		for _, instance := range page.Instances {
+			ip, err := netaddr.ParseIP(instance.Host)
+			if err != nil {
+				return err
+			}
+
+			endpoints = append(endpoints, provider.Endpoint{
+				IP:   ip,
+				Name: instance.DisplayName,
+				Type: "redis",
+			})
+		}
+
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	return endpoints, nil
+}
+
 func (p *Provider) All() ([]provider.Endpoint, error) {
 	resourcesFuncs := []func(string) ([]provider.Endpoint, error){
 		p.Instances,
@@ -194,6 +231,7 @@ func (p *Provider) All() ([]provider.Endpoint, error) {
 	aggregatedResourcesFuncs := []func() ([]provider.Endpoint, error){
 		p.InstancesAggregated,
 		p.AddressesAggregated,
+		p.RedisAggregated,
 	}
 	globalFuncs := []func() ([]provider.Endpoint, error){
 		p.GlobalAddresses,
