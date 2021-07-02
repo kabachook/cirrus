@@ -32,7 +32,7 @@ function useSnapshots() {
 function Table({ endpoints }: {
   endpoints?: Endpoint[]
 }) {
-  const { data, error } = useSWR(API_URL + '/v1/all', fetcher);
+  const { data, error } = useSWR<Endpoint[]>(API_URL + '/v1/all', fetcher);
 
 
   if (!data) {
