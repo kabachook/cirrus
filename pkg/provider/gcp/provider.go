@@ -13,18 +13,20 @@ import (
 const Name = "gcp"
 
 type Provider struct {
-	ctx     context.Context
-	service *compute.Service
-	logger  *zap.Logger
-	project string
-	zones   []string
+	ctx        context.Context
+	service    *compute.Service
+	logger     *zap.Logger
+	project    string
+	zones      []string
+	aggregated bool
 }
 
 type Config struct {
-	Project string
-	Options []option.ClientOption
-	Logger  *zap.Logger
-	Zones   []string
+	Project    string
+	Options    []option.ClientOption
+	Logger     *zap.Logger
+	Zones      []string
+	Aggregated bool
 }
 
 func New(ctx context.Context, cfg Config) (*Provider, error) {
@@ -34,16 +36,52 @@ func New(ctx context.Context, cfg Config) (*Provider, error) {
 	}
 
 	return &Provider{
-		ctx:     ctx,
-		service: service,
-		logger:  cfg.Logger,
-		project: cfg.Project,
-		zones:   cfg.Zones,
+		ctx:        ctx,
+		service:    service,
+		logger:     cfg.Logger,
+		project:    cfg.Project,
+		zones:      cfg.Zones,
+		aggregated: cfg.Aggregated,
 	}, nil
 }
 
 func (p *Provider) Name() string {
 	return Name
+}
+
+func processInstanceList(instances []*compute.Instance) ([]provider.Endpoint, error) {
+	var endpoints []provider.Endpoint
+
+	for _, instance := range instances {
+		for _, iface := range instance.NetworkInterfaces {
+			ip, err := netaddr.ParseIP(iface.NetworkIP)
+			if err != nil {
+				return nil, err
+			}
+
+			endpoints = append(endpoints, provider.Endpoint{
+				IP:   ip,
+				Name: instance.Name,
+				Type: instance.Kind,
+			})
+
+			for _, aconf := range iface.AccessConfigs {
+				if aconf.NatIP != "" {
+					ip, err := netaddr.ParseIP(aconf.NatIP)
+					if err != nil {
+						return nil, err
+					}
+					endpoints = append(endpoints, provider.Endpoint{
+						IP:   ip,
+						Name: instance.Name,
+						Type: instance.Kind,
+					})
+				}
+			}
+		}
+	}
+
+	return endpoints, nil
 }
 
 func (p *Provider) Instances(zone string) ([]provider.Endpoint, error) {
@@ -53,34 +91,34 @@ func (p *Provider) Instances(zone string) ([]provider.Endpoint, error) {
 	if err := req.Pages(p.ctx, func(page *compute.InstanceList) error {
 		p.logger.Debug("Response", zap.Any("instances", page.Items))
 		p.logger.Debug("Fetching endpoints", zap.String("zone", zone))
-		for _, instance := range page.Items {
-			for _, iface := range instance.NetworkInterfaces {
-				ip, err := netaddr.ParseIP(iface.NetworkIP)
-				if err != nil {
-					return err
-				}
-
-				endpoints = append(endpoints, provider.Endpoint{
-					IP:   ip,
-					Name: instance.Name,
-					Type: instance.Kind,
-				})
-
-				for _, aconf := range iface.AccessConfigs {
-					if aconf.NatIP != "" {
-						ip, err := netaddr.ParseIP(aconf.NatIP)
-						if err != nil {
-							return err
-						}
-						endpoints = append(endpoints, provider.Endpoint{
-							IP:   ip,
-							Name: instance.Name,
-							Type: instance.Kind,
-						})
-					}
-				}
-			}
+		pageEndpoints, err := processInstanceList(page.Items)
+		if err != nil {
+			return err
 		}
+		endpoints = append(endpoints, pageEndpoints...)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	return endpoints, nil
+}
+
+func (p *Provider) InstancesAggregated() ([]provider.Endpoint, error) {
+	var endpoints []provider.Endpoint
+
+	req := p.service.Instances.AggregatedList(p.project)
+	if err := req.Pages(p.ctx, func(page *compute.InstanceAggregatedList) error {
+		p.logger.Debug("Response", zap.Any("instances", page.Items))
+
+		for _, scoped := range page.Items {
+			scopedEndpoints, err := processInstanceList(scoped.Instances)
+			if err != nil {
+				return err
+			}
+			endpoints = append(endpoints, scopedEndpoints...)
+		}
+
 		return nil
 	}); err != nil {
 		return nil, err
@@ -90,16 +128,35 @@ func (p *Provider) Instances(zone string) ([]provider.Endpoint, error) {
 }
 
 func (p *Provider) All() ([]provider.Endpoint, error) {
+	resourcesFuncs := []func(string) ([]provider.Endpoint, error){
+		p.Instances,
+	}
+	aggregatedResourcesFuncs := []func() ([]provider.Endpoint, error){
+		p.InstancesAggregated,
+	}
+
 	endpoints := make([]provider.Endpoint, 0)
 
 	p.logger.Debug("Getting endpoints", zap.String("project", p.project))
 
-	for _, zone := range p.zones {
-		zoneInstances, err := p.Instances(zone)
-		if err != nil {
-			return nil, err
+	if p.aggregated {
+		for _, getResource := range aggregatedResourcesFuncs {
+			resourceEndpoints, err := getResource()
+			if err != nil {
+				return nil, err
+			}
+			endpoints = append(endpoints, resourceEndpoints...)
 		}
-		endpoints = append(endpoints, zoneInstances...)
+	} else {
+		for _, getResource := range resourcesFuncs {
+			for _, zone := range p.zones {
+				zoneInstances, err := getResource(zone)
+				if err != nil {
+					return nil, err
+				}
+				endpoints = append(endpoints, zoneInstances...)
+			}
+		}
 	}
 
 	for i := range endpoints {

@@ -12,6 +12,7 @@ const Gcp = gcp.Name
 const GcpProject = Gcp + ".project"
 const GcpKey = Gcp + ".key"
 const GcpZones = Gcp + ".zones"
+const GcpAggregated = Gcp + ".aggregated"
 
 const Yc = yc.Name
 const YcFolderId = Yc + ".folderId"

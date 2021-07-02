@@ -42,6 +42,7 @@ var gcpAllCmd = &cobra.Command{
 		project := v.GetString(cmdGen.GcpProject)
 		key := v.GetString(cmdGen.GcpKey)
 		zones := v.GetStringSlice(cmdGen.GcpZones)
+		aggregated := v.GetBool(cmdGen.GcpAggregated)
 		output, err := cmd.Parent().PersistentFlags().GetString("output")
 		if err != nil {
 			logger.Error(err.Error())
@@ -53,8 +54,9 @@ var gcpAllCmd = &cobra.Command{
 			Options: []option.ClientOption{
 				option.WithCredentialsFile(key),
 			},
-			Zones:  zones,
-			Logger: logger.Named("gcp"),
+			Zones:      zones,
+			Logger:     logger.Named("gcp"),
+			Aggregated: aggregated,
 		})
 		if err != nil {
 			logger.Error(err.Error())

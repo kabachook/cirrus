@@ -43,7 +43,9 @@ func init() {
 	gcpCmd.PersistentFlags().String("project", "", "Project name")
 	gcpCmd.PersistentFlags().String("key", "", "ServiceAccount JSON key file")
 	gcpCmd.PersistentFlags().StringSlice("zones", []string{"europe-north1-a", "europe-north1-b", "europe-north1-c"}, "GCP Zones to enumerate")
+	gcpCmd.PersistentFlags().Bool("aggregated", false, "Use aggregated methods where possible")
 	viper.BindPFlag(cmdGen.GcpProject, gcpCmd.PersistentFlags().Lookup("project"))
 	viper.BindPFlag(cmdGen.GcpKey, gcpCmd.PersistentFlags().Lookup("key"))
 	viper.BindPFlag(cmdGen.GcpZones, gcpCmd.PersistentFlags().Lookup("zones"))
+	viper.BindPFlag(cmdGen.GcpAggregated, gcpCmd.PersistentFlags().Lookup("aggregated"))
 }

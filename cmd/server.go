@@ -69,8 +69,9 @@ var serverCmd = &cobra.Command{
 					Options: []option.ClientOption{
 						option.WithCredentialsFile(v.GetString(cmdGen.GcpKey)),
 					},
-					Zones:  v.GetStringSlice(cmdGen.GcpZones),
-					Logger: logger.Named(gcp.Name),
+					Zones:      v.GetStringSlice(cmdGen.GcpZones),
+					Logger:     logger.Named(gcp.Name),
+					Aggregated: v.GetBool(cmdGen.GcpAggregated),
 				})
 				if err != nil {
 					logger.Error(err.Error())
