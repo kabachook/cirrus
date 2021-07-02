@@ -127,12 +127,76 @@ func (p *Provider) InstancesAggregated() ([]provider.Endpoint, error) {
 	return endpoints, nil
 }
 
+func processAddressList(addresses []*compute.Address) ([]provider.Endpoint, error) {
+	var endpoints []provider.Endpoint
+
+	for _, address := range addresses {
+		ip, err := netaddr.ParseIP(address.Address)
+		if err != nil {
+			return nil, err
+		}
+
+		endpoints = append(endpoints, provider.Endpoint{
+			IP:   ip,
+			Name: address.Name,
+			Type: address.Kind,
+		})
+	}
+
+	return endpoints, nil
+}
+
+func (p *Provider) AddressesAggregated() ([]provider.Endpoint, error) {
+	var endpoints []provider.Endpoint
+
+	req := p.service.Addresses.AggregatedList(p.project)
+	if err := req.Pages(p.ctx, func(page *compute.AddressAggregatedList) error {
+		p.logger.Debug("Response", zap.Any("addresses", page.Items))
+
+		for _, scoped := range page.Items {
+			scopedEndpoints, err := processAddressList(scoped.Addresses)
+			if err != nil {
+				return err
+			}
+			endpoints = append(endpoints, scopedEndpoints...)
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return endpoints, nil
+}
+
+func (p *Provider) GlobalAddresses() ([]provider.Endpoint, error) {
+	var endpoints []provider.Endpoint
+
+	req := p.service.GlobalAddresses.List(p.project)
+	if err := req.Pages(p.ctx, func(page *compute.AddressList) error {
+		p.logger.Debug("Response", zap.Any("addresses", page.Items))
+
+		pageEndpoints, err := processAddressList(page.Items)
+		if err != nil {
+			return err
+		}
+		endpoints = append(endpoints, pageEndpoints...)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return endpoints, nil
+}
+
 func (p *Provider) All() ([]provider.Endpoint, error) {
 	resourcesFuncs := []func(string) ([]provider.Endpoint, error){
 		p.Instances,
+		// TODO: p.Addresses
 	}
 	aggregatedResourcesFuncs := []func() ([]provider.Endpoint, error){
 		p.InstancesAggregated,
+		p.AddressesAggregated,
+	}
+	globalFuncs := []func() ([]provider.Endpoint, error){
+		p.GlobalAddresses,
 	}
 
 	endpoints := make([]provider.Endpoint, 0)
@@ -157,6 +221,14 @@ func (p *Provider) All() ([]provider.Endpoint, error) {
 				endpoints = append(endpoints, zoneInstances...)
 			}
 		}
+	}
+
+	for _, getResource := range globalFuncs {
+		zoneInstances, err := getResource()
+		if err != nil {
+			return nil, err
+		}
+		endpoints = append(endpoints, zoneInstances...)
 	}
 
 	for i := range endpoints {
