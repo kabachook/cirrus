@@ -20,3 +20,6 @@ key*.json
 cirrus.db
 .idea
 .vscode
+bin
+build
+node_modules
