@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/gin-contrib/static"
 	ginzap "github.com/gin-contrib/zap"
 	"github.com/gin-gonic/gin"
 	"github.com/kabachook/cirrus/pkg/database"
@@ -48,6 +49,8 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 func (s *Server) init(cfg Config) error {
 	s.router.Use(ginzap.Ginzap(s.logger, time.RFC3339, false))
 	s.router.Use(ginzap.RecoveryWithZap(s.logger, true))
+
+	s.router.Use(static.Serve("/", static.LocalFile("./frontend/build", true)))
 
 	api := s.router.Group("/v1")
 
