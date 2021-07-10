@@ -1,3 +1,0 @@
-package scanner
-
-func New()

@@ -11,10 +11,10 @@ var Logger *zap.Logger
 
 func init() {
 	env := os.Getenv("CIRRUS_ENV")
-	if env != "production" {
-		Logger, _ = zap.NewDevelopment()
-	} else {
+	if env != "development" {
 		gin.SetMode(gin.ReleaseMode)
 		Logger, _ = zap.NewProduction()
+	} else {
+		Logger, _ = zap.NewDevelopment()
 	}
 }
