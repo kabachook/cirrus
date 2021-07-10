@@ -1,0 +1,26 @@
+gcp:
+  key: key.json # Path to key file
+  project: my-project
+  zones:
+    - europe-north1-a
+    - europe-north1-b
+    - europe-north1-c
+    - us-east1-d
+  aggregated: true # use aggregated queries if possible
+
+yc:
+  token: AQAA... # OAuth token
+  folderId: b1...
+  zones:
+    - ru-central1-a
+    - ru-central1-b
+    - ru-central1-c
+
+server:
+  providers:
+    - gcp
+    - yc
+  scan: 1h
+
+db:
+  path: cirrus.db # Path for database
